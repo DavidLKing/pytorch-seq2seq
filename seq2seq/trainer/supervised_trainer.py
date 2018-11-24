@@ -83,6 +83,11 @@ class SupervisedTrainer(object):
             sort_key=lambda x: len(x.src),
             device=device, repeat=False)
 
+        # TODO temp hack DLK
+        pdb.set_trace()
+        # batch_iterator.data()[0].vec
+        # end
+
         steps_per_epoch = len(batch_iterator)
         total_steps = steps_per_epoch * n_epochs
 

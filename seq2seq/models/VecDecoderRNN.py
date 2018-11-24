@@ -21,7 +21,7 @@ else:
     import torch as device
 
 
-class DecoderRNN(BaseRNN):
+class VecDecoderRNN(BaseRNN):
     r"""
     Provides functionality for decoding in a seq2seq framework, with an option for attention.
 
@@ -74,7 +74,7 @@ class DecoderRNN(BaseRNN):
             sos_id, eos_id,
             n_layers=1, rnn_cell='gru', bidirectional=False,
             input_dropout_p=0, dropout_p=0, use_attention=False):
-        super(DecoderRNN, self).__init__(vocab_size, max_len, hidden_size,
+        super(VecDecoderRNN, self).__init__(vocab_size, max_len, hidden_size,
                 input_dropout_p, dropout_p,
                 n_layers, rnn_cell)
 
@@ -97,7 +97,9 @@ class DecoderRNN(BaseRNN):
 
     def forward_step(self, input_var, hidden, encoder_outputs, function):
 
+        # TODO temp hack DLK
         pdb.set_trace()
+        # end hack
         batch_size = input_var.size(0)
         output_size = input_var.size(1)
         embedded = self.embedding(input_var)
@@ -117,13 +119,9 @@ class DecoderRNN(BaseRNN):
 
         # TODO temp hack DLK
         if torch.cuda.is_available(): #  and inputs != None:
-            try:
-                inputs = inputs.cuda()
-                encoder_outputs = encoder_outputs.cuda()
-            except:
-                pass
-            #     pdb.set_trace()
-        # / temp hack
+            inputs = inputs.cuda()
+            encoder_outputs = encoder_outputs.cuda()
+
 
         ret_dict = dict()
         if self.use_attention:

@@ -97,6 +97,9 @@ class DecoderRNN(BaseRNN):
 
     def forward_step(self, input_var, hidden, encoder_outputs, function):
 
+        # TODO temp hack DLK
+        # pdb.set_trace()
+        # end hack
         batch_size = input_var.size(0)
         output_size = input_var.size(1)
         embedded = self.embedding(input_var)
@@ -116,11 +119,11 @@ class DecoderRNN(BaseRNN):
 
         # TODO temp hack DLK
         if torch.cuda.is_available(): #  and inputs != None:
-            try:
-                inputs = inputs.cuda()
-                encoder_outputs = encoder_outputs.cuda()
-            except:
-                pass
+            # try:
+            inputs = inputs.cuda()
+            encoder_outputs = encoder_outputs.cuda()
+            # except:
+            #     pass
             #     pdb.set_trace()
         # / temp hack
 
