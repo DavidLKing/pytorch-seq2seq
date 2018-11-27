@@ -1,5 +1,6 @@
 # TODO temp hack DLK
 import torch
+import pdb
 # / temp hack
 import torch.nn as nn
 
@@ -71,7 +72,12 @@ class EncoderRNN(BaseRNN):
         """
         # TODO temp hack DLK
         if torch.cuda.is_available():
-            input_var = input_var.cuda()
+            try:
+                input_var = input_var.cuda()
+            except:
+                # TODO SOMEHOW INPUT_VAR AND INPUT_LENGTHS ARE BEING REVERSED AFTER
+                # SOME ITERATIONS, BUT I'M NOT SURE WHY
+                pdb.set_trace()
         # / temp hack
         embedded = self.embedding(input_var)
         embedded = self.input_dropout(embedded)
