@@ -6,6 +6,7 @@ import time
 
 # TODO temp hack DLK
 import pdb
+import numpy as np
 # / temp hack
 
 import torch
@@ -52,10 +53,10 @@ class SupervisedTrainer(object):
 
         self.logger = logging.getLogger(__name__)
 
-    def _train_batch(self, input_variable, input_lengths, target_variable, model, teacher_forcing_ratio):
+    def _train_batch(self, input_variable, input_lengths, vectors, target_variable, model, teacher_forcing_ratio):
         loss = self.loss
         # Forward propagation
-        decoder_outputs, decoder_hidden, other = model(input_variable, input_lengths, target_variable,
+        decoder_outputs, decoder_hidden, other = model(vectors, input_variable, input_lengths, target_variable,
                                                        teacher_forcing_ratio=teacher_forcing_ratio)
         # Get loss
         loss.reset()
@@ -69,7 +70,35 @@ class SupervisedTrainer(object):
 
         return loss.get_loss()
 
-    def _train_epoches(self, data, model, n_epochs, start_epoch, start_step,
+    def clean_word(self, word_array):
+        no_grammar = []
+        for elem in word_array:
+            if '=' not in elem:
+                no_grammar.append(elem)
+        return no_grammar
+
+    def build_vec_batch(self, vocab, input_var, vectors):
+        vec_size = vectors.vector_size
+        # holder for vectors
+        batch_vecs = []
+        # get the strings
+        # input_text = []
+        for ex in input_var:
+            text = [vocab.itos[x] for x in ex]
+            text = self.clean_word(text)
+            text = ''.join(text)
+            # input_text.append(text)
+            if text in vectors:
+                batch_vecs.append(vectors[text])
+            else:
+                batch_vecs.append(np.random.normal(0.0, 0.1, vec_size))
+        return batch_vecs
+
+
+    def _train_epoches(self, input_vocab,
+                       data, model, n_epochs,
+                       start_epoch, start_step,
+                       vectors=None,
                        dev_data=None, teacher_forcing_ratio=0):
         log = self.logger
 
@@ -83,10 +112,6 @@ class SupervisedTrainer(object):
             sort_key=lambda x: len(x.src),
             device=device, repeat=False)
 
-        # TODO temp hack DLK
-        pdb.set_trace()
-        # batch_iterator.data()[0].vec
-        # end
 
         steps_per_epoch = len(batch_iterator)
         total_steps = steps_per_epoch * n_epochs
@@ -97,19 +122,31 @@ class SupervisedTrainer(object):
             log.debug("Epoch: %d, Step: %d" % (epoch, step))
 
             batch_generator = batch_iterator.__iter__()
+            # TODO temp hack DLK
+            # pdb.set_trace()
+            # batch_iterator.data()[0].vec
+            # end
             # consuming seen batches from previous training
             for _ in range((epoch - 1) * steps_per_epoch, step):
                 next(batch_generator)
 
             model.train(True)
+            # TODO temp hack DLK
+            current = 0
+            # end
             for batch in batch_generator:
                 step += 1
                 step_elapsed += 1
 
                 input_variables, input_lengths = getattr(batch, seq2seq.src_field_name)
                 target_variables = getattr(batch, seq2seq.tgt_field_name)
+                if vectors:
+                    vecs = self.build_vec_batch(input_vocab, input_variables, vectors)
+                else:
+                    vecs = None
+                loss = self._train_batch(input_variables, input_lengths.tolist(), vecs, target_variables, model, teacher_forcing_ratio)
 
-                loss = self._train_batch(input_variables, input_lengths.tolist(), target_variables, model, teacher_forcing_ratio)
+                current += 1
 
                 # Record average loss
                 print_loss_total += loss
@@ -147,7 +184,9 @@ class SupervisedTrainer(object):
 
             log.info(log_msg)
 
-    def train(self, model, data, num_epochs=5,
+    def train(self, input_vocab,
+              model, data, num_epochs=5,
+              vectors=None,
               resume=False, dev_data=None,
               optimizer=None, teacher_forcing_ratio=0):
         """ Run training for a given model.
@@ -157,6 +196,7 @@ class SupervisedTrainer(object):
                overwritten by the model loaded from the latest checkpoint.
             data (seq2seq.dataset.dataset.Dataset): dataset object to train on
             num_epochs (int, optional): number of epochs to run (default 5)
+            vectors (None or list): list of batched input word vectors
             resume(bool, optional): resume training with the latest checkpoint, (default False)
             dev_data (seq2seq.dataset.dataset.Dataset, optional): dev Dataset (default None)
             optimizer (seq2seq.optim.Optimizer, optional): optimizer for training
@@ -190,7 +230,10 @@ class SupervisedTrainer(object):
 
         self.logger.info("Optimizer: %s, Scheduler: %s" % (self.optimizer.optimizer, self.optimizer.scheduler))
 
-        self._train_epoches(data, model, num_epochs,
-                            start_epoch, step, dev_data=dev_data,
+        self._train_epoches(input_vocab,
+                            data, model, num_epochs,
+                            start_epoch, step,
+                            vectors=vectors,
+                            dev_data=dev_data,
                             teacher_forcing_ratio=teacher_forcing_ratio)
         return model

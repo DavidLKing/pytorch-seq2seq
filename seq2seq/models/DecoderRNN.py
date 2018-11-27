@@ -70,16 +70,16 @@ class DecoderRNN(BaseRNN):
     KEY_LENGTH = 'length'
     KEY_SEQUENCE = 'sequence'
 
-    def __init__(self, vocab_size, max_len, hidden_size,
-            sos_id, eos_id,
-            n_layers=1, rnn_cell='gru', bidirectional=False,
-            input_dropout_p=0, dropout_p=0, use_attention=False):
+    def __init__(self, vocab_size, max_len, hidden_size, aug_size,
+                 sos_id, eos_id,
+                 n_layers=1, rnn_cell='gru', bidirectional=False,
+                 input_dropout_p=0, dropout_p=0, use_attention=False):
         super(DecoderRNN, self).__init__(vocab_size, max_len, hidden_size,
                 input_dropout_p, dropout_p,
                 n_layers, rnn_cell)
 
         self.bidirectional_encoder = bidirectional
-        self.rnn = self.rnn_cell(hidden_size, hidden_size, n_layers, batch_first=True, dropout=dropout_p)
+        self.rnn = self.rnn_cell(hidden_size + aug_size, hidden_size, n_layers, batch_first=True, dropout=dropout_p)
 
         self.output_size = vocab_size
         self.max_length = max_len
@@ -95,14 +95,23 @@ class DecoderRNN(BaseRNN):
 
         self.out = nn.Linear(self.hidden_size, self.output_size)
 
-    def forward_step(self, input_var, hidden, encoder_outputs, function):
+    def forward_step(self, vectors, input_var, hidden, encoder_outputs, function):
 
-        # TODO temp hack DLK
-        # pdb.set_trace()
-        # end hack
         batch_size = input_var.size(0)
-        output_size = input_var.size(1)
         embedded = self.embedding(input_var)
+        output_size = input_var.size(1)
+        # TODO temp hack DLK
+        if vectors:
+            vectors = torch.Tensor(np.asarray(vectors))
+            vects = torch.Tensor(np.asarray(vectors))
+            vecs = torch.stack([vectors] * input_var.shape[1], 1)
+            if torch.cuda.is_available():
+                vecs = vecs.cuda()
+            # try:
+            embedded = torch.cat((embedded, vecs), -1)
+            # except:
+            #     pdb.set_trace()
+        # end hack
         embedded = self.input_dropout(embedded)
 
         output, hidden = self.rnn(embedded, hidden)
@@ -114,17 +123,13 @@ class DecoderRNN(BaseRNN):
         predicted_softmax = function(self.out(output.contiguous().view(-1, self.hidden_size)), dim=1).view(batch_size, output_size, -1)
         return predicted_softmax, hidden, attn
 
-    def forward(self, inputs=None, encoder_hidden=None, encoder_outputs=None,
-                    function=F.log_softmax, teacher_forcing_ratio=0):
-
+    def forward(self, vectors,
+                inputs=None, encoder_hidden=None, encoder_outputs=None,
+                function=F.log_softmax, teacher_forcing_ratio=0):
         # TODO temp hack DLK
         if torch.cuda.is_available(): #  and inputs != None:
-            # try:
             inputs = inputs.cuda()
             encoder_outputs = encoder_outputs.cuda()
-            # except:
-            #     pass
-            #     pdb.set_trace()
         # / temp hack
 
         ret_dict = dict()
@@ -159,7 +164,7 @@ class DecoderRNN(BaseRNN):
         # If teacher_forcing_ratio is True or False instead of a probability, the unrolling can be done in graph
         if use_teacher_forcing:
             decoder_input = inputs[:, :-1]
-            decoder_output, decoder_hidden, attn = self.forward_step(decoder_input, decoder_hidden, encoder_outputs,
+            decoder_output, decoder_hidden, attn = self.forward_step(vectors, decoder_input, decoder_hidden, encoder_outputs,
                                                                      function=function)
 
             for di in range(decoder_output.size(1)):
@@ -172,7 +177,7 @@ class DecoderRNN(BaseRNN):
         else:
             decoder_input = inputs[:, 0].unsqueeze(1)
             for di in range(max_length):
-                decoder_output, decoder_hidden, step_attn = self.forward_step(decoder_input, decoder_hidden, encoder_outputs,
+                decoder_output, decoder_hidden, step_attn = self.forward_step(vectors, decoder_input, decoder_hidden, encoder_outputs,
                                                                          function=function)
                 step_output = decoder_output.squeeze(1)
                 symbols = decode(di, step_output, step_attn)
