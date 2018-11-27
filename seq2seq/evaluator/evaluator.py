@@ -2,6 +2,8 @@ from __future__ import print_function, division
 
 # TODO temp hack DLK
 import pdb
+import numpy as np
+# from seq2seq.trainer.supervised_trainer import build_vec_batch, clean_word
 # / temp hack
 
 import torch
@@ -22,7 +24,33 @@ class Evaluator(object):
         self.loss = loss
         self.batch_size = batch_size
 
-    def evaluate(self, model, data):
+    # TODO temp hack
+    # make this an importable class:
+    def clean_word(self, word_array):
+        no_grammar = []
+        for elem in word_array:
+            if '=' not in elem:
+                no_grammar.append(elem)
+        return no_grammar
+
+    def build_vec_batch(self, vocab, input_var, vectors):
+        vec_size = vectors.vector_size
+        # holder for vectors
+        batch_vecs = []
+        # get the strings
+        # input_text = []
+        for ex in input_var:
+            text = [vocab.itos[x] for x in ex]
+            text = self.clean_word(text)
+            text = ''.join(text)
+            # input_text.append(text)
+            if text in vectors:
+                batch_vecs.append(vectors[text])
+            else:
+                batch_vecs.append(np.random.normal(0.0, 0.1, vec_size))
+        return batch_vecs
+
+    def evaluate(self, model, data, vectors, input_vocab):
         """ Evaluate a model on given dataset and return performance.
 
         Args:
@@ -49,10 +77,16 @@ class Evaluator(object):
 
         with torch.no_grad():
             for batch in batch_iterator:
+
                 input_variables, input_lengths  = getattr(batch, seq2seq.src_field_name)
                 target_variables = getattr(batch, seq2seq.tgt_field_name)
 
-                decoder_outputs, decoder_hidden, other = model(input_variables, input_lengths.tolist(), target_variables)
+                if vectors:
+                    vecs = self.build_vec_batch(input_vocab, input_variables, vectors)
+                else:
+                    vecs = None
+
+                decoder_outputs, decoder_hidden, other = model(vecs, input_variables, input_lengths.tolist(), target_variables)
 
                 # Evaluation
                 seqlist = other['sequence']
