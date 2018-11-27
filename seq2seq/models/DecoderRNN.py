@@ -127,8 +127,9 @@ class DecoderRNN(BaseRNN):
                 inputs=None, encoder_hidden=None, encoder_outputs=None,
                 function=F.log_softmax, teacher_forcing_ratio=0):
         # TODO temp hack DLK
-        if torch.cuda.is_available(): #  and inputs != None:
-            inputs = inputs.cuda()
+        if torch.cuda.is_available():
+            if inputs != None:
+                inputs = inputs.cuda()
             encoder_outputs = encoder_outputs.cuda()
         # / temp hack
 

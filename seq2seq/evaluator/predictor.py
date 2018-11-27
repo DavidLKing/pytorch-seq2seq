@@ -1,5 +1,6 @@
 # TODO temp hack DLK
 import pdb
+import numpy as np
 # / temp hack
 
 import torch
@@ -8,7 +9,7 @@ from torch.autograd import Variable
 
 class Predictor(object):
 
-    def __init__(self, model, src_vocab, tgt_vocab):
+    def __init__(self, model, src_vocab, tgt_vocab, vectors):
         """
         Predictor class to evaluate for a given model.
         Args:
@@ -24,6 +25,33 @@ class Predictor(object):
         self.model.eval()
         self.src_vocab = src_vocab
         self.tgt_vocab = tgt_vocab
+        self.vectors = vectors
+
+    # TODO temp hack
+    # make this an importable class:
+    def clean_word(self, word_array):
+        no_grammar = []
+        for elem in word_array:
+            if '=' not in elem:
+                no_grammar.append(elem)
+        return no_grammar
+
+    def build_vec_batch(self, vocab, input_var, vectors):
+        vec_size = vectors.vector_size
+        # holder for vectors
+        batch_vecs = []
+        # get the strings
+        # input_text = []
+        for ex in input_var:
+            text = [vocab.itos[x] for x in ex]
+            text = self.clean_word(text)
+            text = ''.join(text)
+            # input_text.append(text)
+            if text in vectors:
+                batch_vecs.append(vectors[text])
+            else:
+                batch_vecs.append(np.random.normal(0.0, 0.1, vec_size))
+        return batch_vecs
 
     def get_decoder_features(self, src_seq):
         src_id_seq = torch.LongTensor([self.src_vocab.stoi[tok] for tok in src_seq]).view(1, -1)
@@ -36,7 +64,9 @@ class Predictor(object):
             if torch.cuda.is_available():
                 src_id_seq = src_id_seq.cuda()
             # / temp hack
-            softmax_list, _, other = self.model(src_id_seq, [len(src_seq)])
+            # pdb.set_trace()
+            vecs = self.build_vec_batch(self.src_vocab, src_id_seq, self.vectors)
+            softmax_list, _, other = self.model(vecs, src_id_seq, [len(src_seq)])
 
         return other
 
