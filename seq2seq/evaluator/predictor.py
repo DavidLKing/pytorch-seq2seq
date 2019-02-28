@@ -9,7 +9,7 @@ from torch.autograd import Variable
 
 class Predictor(object):
 
-    def __init__(self, model, src_vocab, tgt_vocab, vectors):
+    def __init__(self, model, src_vocab, tgt_vocab):
         """
         Predictor class to evaluate for a given model.
         Args:
@@ -25,7 +25,6 @@ class Predictor(object):
         self.model.eval()
         self.src_vocab = src_vocab
         self.tgt_vocab = tgt_vocab
-        self.vectors = vectors
 
     # TODO temp hack
     # make this an importable class:
@@ -53,7 +52,7 @@ class Predictor(object):
                 batch_vecs.append(np.random.normal(0.0, 0.1, vec_size))
         return batch_vecs
 
-    def get_decoder_features(self, src_seq):
+    def get_decoder_features(self, src_seq, vector=None):
         src_id_seq = torch.LongTensor([self.src_vocab.stoi[tok] for tok in src_seq]).view(1, -1)
         if torch.cuda.is_available():
             src_id_seq = src_id_seq.cuda()
@@ -65,12 +64,12 @@ class Predictor(object):
                 src_id_seq = src_id_seq.cuda()
             # / temp hack
             # pdb.set_trace()
-            vecs = self.build_vec_batch(self.src_vocab, src_id_seq, self.vectors)
-            softmax_list, _, other = self.model(vecs, src_id_seq, [len(src_seq)])
+            vector = np.expand_dims(vector, 0)
+            softmax_list, _, other = self.model(vector, src_id_seq, [len(src_seq)])
 
         return other
 
-    def predict(self, src_seq):
+    def predict(self, src_seq, vector=None):
         """ Make prediction given `src_seq` as input.
 
         Args:
@@ -80,7 +79,7 @@ class Predictor(object):
             tgt_seq (list): list of tokens in target language as predicted
             by the pre-trained model
         """
-        other = self.get_decoder_features(src_seq)
+        other = self.get_decoder_features(src_seq, vector)
 
         length = other['length'][0]
 

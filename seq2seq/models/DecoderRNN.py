@@ -101,7 +101,7 @@ class DecoderRNN(BaseRNN):
         embedded = self.embedding(input_var)
         output_size = input_var.size(1)
         # TODO temp hack DLK
-        if vectors:
+        if vectors is not None:
             vectors = torch.Tensor(np.asarray(vectors))
             vects = torch.Tensor(np.asarray(vectors))
             vecs = torch.stack([vectors] * input_var.shape[1], 1)

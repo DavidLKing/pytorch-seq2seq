@@ -140,8 +140,8 @@ class SupervisedTrainer(object):
 
                 input_variables, input_lengths = getattr(batch, seq2seq.src_field_name)
                 target_variables = getattr(batch, seq2seq.tgt_field_name)
-                if vectors:
-                    vecs = self.build_vec_batch(input_vocab, input_variables, vectors)
+                if vectors is not None:
+                    vecs = getattr(batch, "vector")
                 else:
                     vecs = None
                 loss = self._train_batch(input_variables, input_lengths.tolist(), vecs, target_variables, model, teacher_forcing_ratio)
