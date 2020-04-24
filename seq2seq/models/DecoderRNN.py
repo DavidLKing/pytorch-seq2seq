@@ -103,7 +103,7 @@ class DecoderRNN(BaseRNN):
         # TODO temp hack DLK
         if vectors:
             vectors = torch.Tensor(np.asarray(vectors))
-            vects = torch.Tensor(np.asarray(vectors))
+            # vects = torch.Tensor(np.asarray(vectors))
             vecs = torch.stack([vectors] * input_var.shape[1], 1)
             if torch.cuda.is_available():
                 vecs = vecs.cuda()
@@ -128,8 +128,11 @@ class DecoderRNN(BaseRNN):
                 function=F.log_softmax, teacher_forcing_ratio=0):
         # TODO temp hack DLK
         if torch.cuda.is_available():
-            if inputs != None:
-                inputs = inputs.cuda()
+            try:
+                if type(inputs) == torch.Tensor:
+                    inputs = inputs.cuda()
+            except:
+                pdb.set_trace()
             encoder_outputs = encoder_outputs.cuda()
         # / temp hack
 
@@ -187,7 +190,9 @@ class DecoderRNN(BaseRNN):
         ret_dict[DecoderRNN.KEY_SEQUENCE] = sequence_symbols
         ret_dict[DecoderRNN.KEY_LENGTH] = lengths.tolist()
 
-        return decoder_outputs, decoder_hidden, ret_dict
+        # TODO DLK TEMP HACK TO GET EMBEDDINGS
+        # return decoder_outputs, decoder_hidden, ret_dict
+        return decoder_outputs, decoder_hidden, ret_dict, encoder_outputs, encoder_hidden
 
     def _init_state(self, encoder_hidden):
         """ Initialize the encoder hidden state. """

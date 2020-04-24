@@ -100,9 +100,14 @@ class Evaluator(object):
                         target = target.cuda()
                         non_padding = non_padding.cuda()
                         # pdb.set_trace()
+                    if len(seqlist[step]) > 1:
+                        for item in seqlist[step]:
+                            correct = item.view(-1).eq(target).masked_select(non_padding).sum().item()
+                            match += correct
+                    else:
+                        correct = seqlist[step].view(-1).eq(target).masked_select(non_padding).sum().item()
+                        match += correct
                     # / temp hack
-                    correct = seqlist[step].view(-1).eq(target).masked_select(non_padding).sum().item()
-                    match += correct
                     total += non_padding.sum().item()
 
         if total == 0:

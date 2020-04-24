@@ -1,3 +1,4 @@
+import pdb
 import torch
 import torch.nn.functional as F
 from torch.autograd import Variable
@@ -80,7 +81,8 @@ class TopKDecoder(torch.nn.Module):
         self.SOS = self.rnn.sos_id
         self.EOS = self.rnn.eos_id
 
-    def forward(self, inputs=None, encoder_hidden=None, encoder_outputs=None, function=F.log_softmax,
+    def forward(self, vectors,
+                    inputs=None, encoder_hidden=None, encoder_outputs=None, function=F.log_softmax,
                     teacher_forcing_ratio=0, retain_output_probs=True):
         """
         Forward rnn for MAX_LENGTH steps.  Look at :func:`seq2seq.models.DecoderRNN.DecoderRNN.forward_rnn` for details.
@@ -117,6 +119,11 @@ class TopKDecoder(torch.nn.Module):
         # Initialize the input vector
         input_var = Variable(torch.transpose(torch.LongTensor([[self.SOS] * batch_size * self.k]), 0, 1))
 
+        if torch.cuda.is_available():
+            input_var = input_var.cuda()
+            sequence_scores = sequence_scores.cuda()
+            self.pos_index = self.pos_index.cuda()
+
         # Store decisions for backtracking
         stored_outputs = list()
         stored_scores = list()
@@ -124,10 +131,11 @@ class TopKDecoder(torch.nn.Module):
         stored_emitted_symbols = list()
         stored_hidden = list()
 
+
         for _ in range(0, max_length):
 
             # Run the RNN one step forward
-            log_softmax_output, hidden, _ = self.rnn.forward_step(input_var, hidden,
+            log_softmax_output, hidden, _ = self.rnn.forward_step(vectors, input_var, hidden,
                                                                   inflated_encoder_outputs, function=function)
 
             # If doing local backprop (e.g. supervised training), retain the output layer
@@ -238,12 +246,16 @@ class TopKDecoder(torch.nn.Module):
         batch_eos_found = [0] * b   # the number of EOS found
                                     # in the backward loop below for each batch
 
-        t = self.rnn.max_length - 1
+        # DLK TEMP HACK
+        # TODO why is t set to 49 while nw_* variables only have <49 items?
+        # t = self.rnn.max_length - 1
+        t = len(nw_output) - 1
         # initialize the back pointer with the sorted order of the last step beams.
         # add self.pos_index for indexing variable with b*k as the first dimension.
         t_predecessors = (sorted_idx + self.pos_index.expand_as(sorted_idx)).view(b * self.k)
         while t >= 0:
             # Re-order the variables with the back pointer
+            # pdb.set_trace()
             current_output = nw_output[t].index_select(0, t_predecessors)
             if lstm:
                 current_hidden = tuple([h.index_select(1, t_predecessors) for h in nw_hidden[t]])
@@ -320,6 +332,10 @@ class TopKDecoder(torch.nn.Module):
         # It is reversed because the backtracking happens in reverse time order
         output = [step.index_select(0, re_sorted_idx).view(b, self.k, -1) for step in reversed(output)]
         p = [step.index_select(0, re_sorted_idx).view(b, self.k, -1) for step in reversed(p)]
+
+        if torch.cuda.is_available():
+            h_n = tuple([h.cuda() for h in h_n])
+
         if lstm:
             h_t = [tuple([h.index_select(1, re_sorted_idx).view(-1, b, self.k, hidden_size) for h in step]) for step in reversed(h_t)]
             h_n = tuple([h.index_select(1, re_sorted_idx.data).view(-1, b, self.k, hidden_size) for h in h_n])
