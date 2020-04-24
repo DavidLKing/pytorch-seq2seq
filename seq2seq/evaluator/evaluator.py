@@ -86,10 +86,11 @@ class Evaluator(object):
                 else:
                     vecs = None
 
-                decoder_outputs, decoder_hidden, other = model(vecs, input_variables, input_lengths.tolist(), target_variables)
+                # decoder_outputs, decoder_hidden, other = model(vecs, input_variables, input_lengths.tolist(), target_variables)
+                decoder_outputs, decoder_hidden, ret_dict, encoder_outputs, encoder_hidden = model(vecs, input_variables, input_lengths.tolist(), target_variables)
 
                 # Evaluation
-                seqlist = other['sequence']
+                seqlist = ret_dict['sequence']
                 for step, step_output in enumerate(decoder_outputs):
                     target = target_variables[:, step + 1]
                     loss.eval_batch(step_output.view(target_variables.size(0), -1), target)

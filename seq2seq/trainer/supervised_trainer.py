@@ -54,10 +54,12 @@ class SupervisedTrainer(object):
         self.logger = logging.getLogger(__name__)
 
     def _train_batch(self, input_variable, input_lengths, vectors, target_variable, model, teacher_forcing_ratio):
+        # pdb.set_trace()
         loss = self.loss
         # Forward propagation
-        decoder_outputs, decoder_hidden, other = model(vectors, input_variable, input_lengths, target_variable,
-                                                       teacher_forcing_ratio=teacher_forcing_ratio)
+        # decoder_outputs, decoder_hidden, other = model(vectors, input_variable, input_lengths, target_variable,
+
+        decoder_outputs, decoder_hidden, ret_dict, encoder_outputs, encoder_hidden = model(vectors, input_variable, input_lengths, target_variable, teacher_forcing_ratio=teacher_forcing_ratio)
         # Get loss
         loss.reset()
         for step, step_output in enumerate(decoder_outputs):
